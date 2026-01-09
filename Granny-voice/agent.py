@@ -1,3 +1,4 @@
+import os
 from dotenv import load_dotenv
 
 from livekit import agents, rtc
@@ -8,6 +9,13 @@ from livekit.plugins import (
 )
 
 load_dotenv(".env.local")
+
+# Validate required environment variables
+if not os.getenv("OPENAI_API_KEY"):
+    raise ValueError(
+        "OPENAI_API_KEY environment variable is required. "
+        "Please set it in your .env.local file."
+    )
 
 class Assistant(Agent):
     def __init__(self) -> None:
@@ -33,9 +41,14 @@ async def my_agent(ctx: agents.JobContext):
         ),
     )
 
+# 🔴 THIS LINE IS REQUIRED
+    participant = await ctx.wait_for_participant()
+
+# ✅ NOW the agent can speak
     await session.generate_reply(
-        instructions="Greet the user and offer your assistance. You should start by speaking in English."
-    )
+    instructions="Greet the user and offer your assistance. You should start by speaking in English."
+)
+
 
 
 if __name__ == "__main__":
