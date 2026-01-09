@@ -7,11 +7,11 @@ import 'package:permission_handler/permission_handler.dart';
 class VoiceSessionService {
   // Update this URL to point to your Python server address
   // Use 10.0.2.2 for Android Emulator, or local LAN IP for physical device
-  static const String _tokenEndpoint = 'http://10.106.99.188:8080/session'; 
-  
+  static const String _tokenEndpoint = 'http://10.212.120.234:8080/session';
+
   Room? _room;
   EventsListener<RoomEvent>? _listener;
-  
+
   bool get isConnected => _room?.connectionState == ConnectionState.connected;
 
   Future<void> startSession({
@@ -41,16 +41,16 @@ class VoiceSessionService {
 
       _setUpListeners(onConnectionChange, onAgentSpeaking);
 
-      await _room!.connect(url, token, roomOptions: const RoomOptions(
-        adaptiveStream: true,
-        dynacast: true,
-      ));
+      await _room!.connect(url, token,
+          roomOptions: const RoomOptions(
+            adaptiveStream: true,
+            dynacast: true,
+          ));
 
       // 4. Enable Mic
       await _room!.localParticipant?.setMicrophoneEnabled(true);
-      
+
       onConnectionChange(true);
-      
     } catch (e) {
       onError(e.toString());
       await stopSession();
@@ -61,9 +61,9 @@ class VoiceSessionService {
     try {
       final uri = Uri.parse(_tokenEndpoint);
       debugPrint('Fetching token from: $uri');
-      
+
       final response = await http.get(uri);
-      
+
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       } else {

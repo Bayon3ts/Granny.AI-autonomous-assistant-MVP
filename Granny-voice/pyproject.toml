@@ -9,4 +9,5 @@ dependencies = [
     "fastapi>=0.100",
     "uvicorn>=0.20",
     "livekit-api>=0.4",
+    "livekit-plugins-openai>=0.7",
 ]
