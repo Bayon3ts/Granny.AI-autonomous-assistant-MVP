@@ -19,9 +19,17 @@ url='wss://api.openai.com/v1/realtime?model=gpt-realtime'
    - **Issue**: The code had two `session.start()` calls which would cause conflicts
    - **Fix**: Removed the duplicate call
 
-### 2. ✅ Added API Key Validation
-   - **Issue**: No validation to check if `OPENAI_API_KEY` exists before attempting connection
-   - **Fix**: Added validation that raises a clear error message if the key is missing
+### 2. ✅ Added API Key Validation and Explicit Passing
+   - **Issue**: API key might not be properly loaded or passed to RealtimeModel
+   - **Fix**: 
+     - Added validation to check if `OPENAI_API_KEY` exists before attempting connection
+     - Explicitly pass the API key to `RealtimeModel(api_key=openai_api_key)`
+     - Ensure the environment variable is set in `os.environ` for libraries that read directly from environment
+     - Added better error messages and debugging output
+
+### 3. ✅ Created Helper Scripts
+   - **Created**: `check_env.py` - Verifies environment configuration
+   - **Created**: `test_openai_key.py` - Tests if API key is valid
 
 ## Steps to Fix the 401 Error
 

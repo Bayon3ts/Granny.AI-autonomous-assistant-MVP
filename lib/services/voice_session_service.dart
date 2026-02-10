@@ -5,11 +5,10 @@ import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
 
 class VoiceSessionService {
-  // Update this URL to point to your Python server address
-  // Use 10.0.2.2 for Android Emulator, or local LAN IP for physical device
-  static const String _tokenEndpoint = 'http://10.212.120.234:8080/session';
-
+  static const String _tokenEndpoint =
+      'https://e8d3-102-89-33-90.ngrok-free.app/session';
   Room? _room;
+
   EventsListener<RoomEvent>? _listener;
 
   bool get isConnected => _room?.connectionState == ConnectionState.connected;
@@ -22,8 +21,11 @@ class VoiceSessionService {
     try {
       // 1. Permissions
       final status = await Permission.microphone.request();
+      debugPrint(
+          '🎤 Microphone permission: ${status == PermissionStatus.granted ? "granted" : "denied"}');
       if (status != PermissionStatus.granted) {
-        throw Exception('Microphone permission denied');
+        onError('Microphone permission denied');
+        return; // Don't stop session, just return
       }
 
       // 2. Fetch Token
@@ -32,28 +34,41 @@ class VoiceSessionService {
       final url = sessionData['url'];
 
       if (token == null || url == null) {
-        throw Exception('Invalid session data from server');
+        onError('Invalid session data from server');
+        return; // Don't stop session, just return
       }
 
       // 3. Connect to Room
       _room = Room();
       _listener = _room!.createListener();
 
-      _setUpListeners(onConnectionChange, onAgentSpeaking);
+      _setUpListeners(onConnectionChange, onAgentSpeaking, onError);
 
-      await _room!.connect(url, token,
-          roomOptions: const RoomOptions(
-            adaptiveStream: true,
-            dynacast: true,
-          ));
+      debugPrint('🔗 Connecting to LiveKit room: $url');
+      await _room!.connect(
+        url,
+        token,
+        roomOptions: const RoomOptions(
+          adaptiveStream: true,
+          dynacast: true,
+        ),
+      );
+      debugPrint('✅ Connected to room: ${_room!.name}');
 
       // 4. Enable Mic
       await _room!.localParticipant?.setMicrophoneEnabled(true);
+      debugPrint('🎙️ Local microphone enabled');
 
       onConnectionChange(true);
+
+      // Session is now active - DO NOT call stopSession here!
     } catch (e) {
+      debugPrint(' Error in startSession: $e');
       onError(e.toString());
-      await stopSession();
+      // Only stop if we actually connected
+      if (_room?.connectionState == ConnectionState.connected) {
+        await stopSession();
+      }
     }
   }
 
@@ -77,17 +92,41 @@ class VoiceSessionService {
   void _setUpListeners(
     Function(bool) onConnectionChange,
     Function(bool) onAgentSpeaking,
+    Function(String) onError,
   ) {
     if (_listener == null) return;
 
     _listener!
       ..on<RoomDisconnectedEvent>((event) {
-        debugPrint('VoiceSessionService: Room disconnected');
+        debugPrint('❌ Room disconnected: ${event.reason}');
         onConnectionChange(false);
+      })
+      ..on<RoomConnectedEvent>((event) {
+        debugPrint('✅ Room connected successfully');
+      })
+      ..on<TrackPublishedEvent>((event) {
+        debugPrint(
+            '🔊 Remote track published: ${event.publication.sid}, kind: ${event.publication.kind}');
+      })
+      ..on<TrackSubscribedEvent>((event) async {
+        debugPrint(
+            '🎧 Remote track subscribed: ${event.track.sid}, kind: ${event.track.kind}');
+
+        if (event.track.kind == TrackType.AUDIO) {
+          final audioTrack = event.track as RemoteAudioTrack;
+          debugPrint('🔈 Starting audio playback for track: ${audioTrack.sid}');
+
+          try {
+            await audioTrack.start();
+            debugPrint('✅ Audio playback started for track: ${audioTrack.sid}');
+          } catch (e) {
+            debugPrint('⚠️ Error starting audio playback: $e');
+            // Don't call onError here - this is not critical
+          }
+        }
       })
       ..on<ActiveSpeakersChangedEvent>((event) {
         bool agentTalking = false;
-        // Check if anyone OTHER than local participant is speaking
         for (var p in event.speakers) {
           if (p.sid != _room?.localParticipant?.sid) {
             agentTalking = true;
@@ -95,13 +134,32 @@ class VoiceSessionService {
           }
         }
         onAgentSpeaking(agentTalking);
+      })
+      ..on<TrackUnpublishedEvent>((event) {
+        debugPrint('🔇 Remote track unpublished: ${event.publication.sid}');
+      })
+      ..on<ParticipantConnectedEvent>((event) {
+        debugPrint('👤 Participant joined: ${event.participant.identity}');
       });
   }
 
   Future<void> stopSession() async {
-    await _room?.disconnect();
+    debugPrint('🛑 Stopping voice session...');
+
+    try {
+      await _room?.disconnect();
+    } catch (e) {
+      debugPrint('⚠️ Error disconnecting room: $e');
+    }
+
     _room = null;
     _listener?.dispose();
     _listener = null;
+
+    debugPrint('✅ Voice session stopped');
+  }
+
+  void dispose() {
+    stopSession();
   }
 }

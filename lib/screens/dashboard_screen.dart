@@ -16,12 +16,10 @@ class _DashboardScreenState extends State<DashboardScreen>
   late final AnimationController _orbController;
   final VoiceSessionService _voiceService = VoiceSessionService();
 
-  // State variables from snippet
   bool _wsConnected = false;
   bool _connecting = false;
-  bool _isListening = false; // "Mic active" state
+  bool _isListening = false;
 
-  // Mock Data variables
   String _greeting = 'Good Morning';
   final String _userName = 'Bayo';
   final String _userAge = '82';
@@ -31,7 +29,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   final String _lastChatActivity = 'Yesterday: Called Sarah';
   final List<String> _recentActivities = ['Took medication'];
 
-  // Gradient from strict spec
   final LinearGradient cardGradient = const LinearGradient(
     colors: [Color(0xFF6D74E4), Color(0xFFF6F7FB)],
     begin: Alignment.topCenter,
@@ -62,32 +59,22 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   void dispose() {
-    _voiceService.stopSession();
+    // DON'T stop the session here - it causes premature disconnection
+    // The session will be cleaned up by the service itself when needed
     _orbController.dispose();
     super.dispose();
-  }
-
-  // Adapter methods to match snippet logic with existing service
-  Future<void> _handleVoiceSession() async {
-    if (_wsConnected) {
-      await _stopListening();
-    } else {
-      await _startListening();
-    }
   }
 
   Future<void> _connectToServerWs() async {
     if (_connecting) return;
     setState(() => _connecting = true);
 
-    // We treat "Connect" as starting the session in the existing service architecture
     await _voiceService.startSession(
       onConnectionChange: (connected) {
         if (mounted) {
           setState(() {
             _wsConnected = connected;
             _connecting = false;
-            // If connected, we assume listening is available/active initially
             if (connected) {
               _isListening = true;
               _orbController.duration = const Duration(milliseconds: 1500);
@@ -99,9 +86,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
       },
       onAgentSpeaking: (speaking) {
-        if (mounted) {
-          // Optional: update UI based on speaking state if needed
-        }
+        // Optional: update UI based on speaking state if needed
       },
       onError: (error) {
         if (mounted) {
@@ -113,15 +98,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Future<void> _startListening() async {
-    if (!_wsConnected) {
-      await _connectToServerWs();
-    } else {
-      setState(() => _isListening = true);
-    }
-  }
-
   Future<void> _stopListening() async {
+    // Only disconnect if user explicitly wants to end the session
     await _voiceService.stopSession();
     setState(() {
       _wsConnected = false;
@@ -239,16 +217,42 @@ class _DashboardScreenState extends State<DashboardScreen>
                 const SizedBox(height: 24),
                 // MAIN ORB
                 Center(
-                  child: SizedBox(
-                    width: w * 0.55,
-                    height: w * 0.55,
-                    child: GlowingOrb(
-                      controller: _orbController,
-                      label: 'Talk to\nGranny AI',
+                  child: GestureDetector(
+                    onTap: () async {
+                      // Quick tap on orb to toggle connection
+                      if (!_wsConnected && !_connecting) {
+                        await _connectToServerWs();
+                      } else if (_wsConnected) {
+                        await _stopListening();
+                      }
+                    },
+                    child: SizedBox(
+                      width: w * 0.55,
+                      height: w * 0.55,
+                      child: GlowingOrb(
+                        controller: _orbController,
+                        label: 'Talk to\nGranny AI',
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 28),
+                // Connection status indicator
+                Center(
+                  child: Text(
+                    _wsConnected
+                        ? '🟢 Connected - Tap "End Call" when done'
+                        : _connecting
+                            ? '🟡 Connecting...'
+                            : '⚪ Tap button below to start',
+                    style: TextStyle(
+                      color: Colors.black.withOpacity(0.6),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
                 // SUMMARY + HEALTH
                 Row(
                   children: [
@@ -404,26 +408,24 @@ class _DashboardScreenState extends State<DashboardScreen>
         padding: const EdgeInsets.only(right: 16, bottom: 16),
         child: FloatingActionButton.extended(
           onPressed: () async {
-            // Ensure connection
             if (!_wsConnected && !_connecting) {
+              debugPrint('🎯 User tapped: Starting session');
               await _connectToServerWs();
-            }
-
-            if (!_isListening) {
-              await _startListening();
-            } else {
-              // Commit and stop
+            } else if (_wsConnected) {
+              debugPrint('🎯 User tapped: Ending session');
               await _stopListening();
             }
           },
           backgroundColor: const Color(0xFF6D74E4),
           label: Text(
-            _isListening
-                ? 'Stop & Send to Granny'
-                : (_wsConnected ? 'Talk to Granny' : 'Connect & Talk'),
+            _wsConnected
+                ? 'End Call'
+                : (_connecting ? 'Connecting...' : 'Talk to Granny'),
             style: const TextStyle(
                 color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
           ),
+          icon: Icon(_wsConnected ? Icons.call_end : Icons.mic,
+              color: Colors.white),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),

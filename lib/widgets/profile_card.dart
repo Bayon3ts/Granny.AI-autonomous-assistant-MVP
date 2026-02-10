@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class ProfileCard extends StatelessWidget {
   final String name;
@@ -21,22 +20,27 @@ class ProfileCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8)],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8)
+        ],
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 30,
-            backgroundImage: const NetworkImage('https://i.pravatar.cc/150?img=65'),
+            backgroundImage:
+                const NetworkImage('https://i.pravatar.cc/150?img=65'),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('$name, $age', style: const TextStyle(fontWeight: FontWeight.w700)),
+                Text('$name, $age',
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
-                Text(healthSummary, style: const TextStyle(color: Colors.black54)),
+                Text(healthSummary,
+                    style: const TextStyle(color: Colors.black54)),
               ],
             ),
           ),
